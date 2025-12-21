@@ -6,3 +6,7 @@ export interface Transaction {
   storeId: string;
   transactionId: string;
 }
+
+export interface TransactionFetcher {
+  fetch(page: number): Promise<Transaction[]>;
+}
