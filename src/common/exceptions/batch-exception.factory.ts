@@ -17,7 +17,7 @@ export class BatchExceptionFactory {
       ApiResponseCode.NETWORK_ERROR,
       '일시적인 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       `[Network Error] Failed to connect to ${url} on port ${port}`,
-      statusCode ? ` with status code ${statusCode}` : '',
+      { port, url, statusCode },
     );
   }
 
@@ -33,6 +33,7 @@ export class BatchExceptionFactory {
       ApiResponseCode.RETRY_EXHAUSTED,
       '데이터를 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.',
       `[Retry Exhausted] Failed to fetch data from ${url} on port ${port} after ${maxRetries} attempts.`,
+      { port, url, maxRetries },
     );
   }
 
@@ -44,6 +45,7 @@ export class BatchExceptionFactory {
       ApiResponseCode.DATA_SOURCE_ERROR,
       '데이터를 불러오는 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.',
       `[Data Source Error] Error accessing data source ${sourceName}: ${reason}`,
+      { sourceName, reason },
     );
   }
 
@@ -59,6 +61,7 @@ export class BatchExceptionFactory {
       ApiResponseCode.STORE_TRANSACTION_NOT_FOUND,
       '상점 거래 정보를 찾을 수 없습니다.',
       `[StoreTransaction Not Found] No StoreTransaction found for transactionId: ${transactionId}, storeId: ${storeId}, date: ${date}`,
+      { transactionId, storeId, date },
     );
   }
 
@@ -73,6 +76,7 @@ export class BatchExceptionFactory {
       ApiResponseCode.TRANSACTION_MERGE_FAILED,
       '거래 정보 병합 중 오류가 발생했습니다.',
       `[Transaction Merge Failed] Failed to merge transactionId: ${transactionId}. Reason: ${reason}`,
+      { transactionId, reason },
     );
   }
 
@@ -84,6 +88,7 @@ export class BatchExceptionFactory {
       ApiResponseCode.DATABASE_ERROR,
       '데이터 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       `[Database Error] Error during ${operation}: ${error.message}`,
+      { operation, errorMessage: error.message },
     );
   }
 
@@ -95,6 +100,7 @@ export class BatchExceptionFactory {
       ApiResponseCode.BATCH_EXECUTION_ERROR,
       '배치 작업 중 오류가 발생했습니다.',
       `[Batch Execution Error] Error in phase ${phase}: ${error.message}`,
+      { phase, errorMessage: error.message },
     );
   }
 }
