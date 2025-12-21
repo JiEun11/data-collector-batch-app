@@ -1,5 +1,4 @@
-import { Transaction } from '../type/transaction';
-import { TransactionFetcher } from '../type/transaction';
+import { Transaction, TransactionFetcher } from '../type/transaction';
 import fs from 'fs/promises';
 import { parse } from 'csv-parse/sync';
 import { BatchLogger } from '../../log/type/batch-logger';
