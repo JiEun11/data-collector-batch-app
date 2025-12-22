@@ -7,6 +7,10 @@ export class CsvTransactionFetcher implements TransactionFetcher {
   constructor(private filePath: string, private logger: BatchLogger) { }
 
   async fetch(page: number): Promise<Transaction[]> {
+    if (page > 1) {
+      return [];
+    }
+
     try {
       const raw = await readFile(this.filePath, 'utf-8');
       const records = parse(raw, { columns: true, skip_empty_lines: true });
