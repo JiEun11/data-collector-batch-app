@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
-import { StoreTransaction } from '../type/store-transaction';
-import { BatchLogger } from '../../log/type/batch-logger';
+import { StoreTransaction } from '../../type/store-transaction';
+import { BatchLogger } from '../../../log/type/batch-logger';
 import { Api4596PortResponse } from 'data-source/type/ApiResponse';
 
 export class StoreTransactionFetcher {

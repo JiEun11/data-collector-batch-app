@@ -8,7 +8,7 @@ import { TransactionCollectionService } from './services/transaction-collection.
 import { MergeTransactionService } from './services/merge-transaction.service';
 import { BatchRepositoryService } from './services/batch-repository.service';
 import { BatchLoggerService } from 'src/log/batch-logger.service';
-import { StoreTransactionFetcher } from './data-source/store-transaction-fetcher';
+import { StoreTransactionFetcher } from './data-source/fetchers/store-transaction-fetcher';
 import {
   TransactionFetchersProvider,
   TRANSACTION_FETCHERS,

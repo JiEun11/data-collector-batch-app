@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Transaction } from '../type/transaction';
 import { StoreTransaction } from '../type/store-transaction';
 import { MergeTransaction } from '../type/merge-transaction';
-import { StoreTransactionFetcher } from '../data-source/store-transaction-fetcher';
+import { StoreTransactionFetcher } from '../data-source/fetchers/store-transaction-fetcher';
 import { createMergeTransaction } from '../domain/createMergeTransaction';
 import { BatchLoggerService } from '../../log/batch-logger.service';
 
