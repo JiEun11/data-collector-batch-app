@@ -46,6 +46,10 @@ export class TransactionCollectionService {
           break;
         }
 
+        console.error(`[${sourceName}] Page ${page} 수집 실패`);
+        console.error(`[${sourceName}] 에러 메시지: ${error.message}`);
+        console.error(`[${sourceName}] 에러 스택:`, error.stack);
+
         // 다른 에러는 로깅 후 중단
         this.logger.error(
           `[${sourceName}] Page ${page} 수집 실패`,
@@ -74,7 +78,9 @@ export class TransactionCollectionService {
         const data = await this.fetchAllFromSource(source.fetcher, source.name);
         results.push(...data);
       } catch (error) {
-        // 하나의 소스 실패해도 계속 진행
+        // 하나의 소스 실패해도 계속 진행, 상세 로깅
+        console.error(`[${source.name}] 수집 실패, 계속 진행`);
+        console.error(`[${source.name}] 에러: ${error.message}`);
         this.logger.warn(`[${source.name}] 수집 실패, 계속 진행`);
       }
     }
