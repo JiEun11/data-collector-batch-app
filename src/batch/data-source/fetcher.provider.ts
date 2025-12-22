@@ -5,6 +5,7 @@ import { Port4001Fetcher } from './fetchers/port-4001-fetcher';
 import { Port4002Fetcher } from './fetchers/port-4002-fetcher';
 import { Port4003Fetcher } from './fetchers/port-4003-fetcher';
 import { CsvTransactionFetcher } from './csv-transaction-fetcher';
+import * as path from 'path';
 
 /**
  * @description Fetcher 정의 인터페이스
@@ -37,7 +38,11 @@ export const TRANSACTION_FETCHERS = Symbol('TRANSACTION_FETCHERS');
 /**
  * @description 기본 CSV 파일 경로
  */
-const DEFAULT_CSV_PATH = './data-source/transaction.csv';
+const DEFAULT_CSV_PATH = path.join(
+  process.cwd(),
+  'data-source',
+  'transaction.csv',
+);
 
 /**
  * @description TransactionFetcher Provider
