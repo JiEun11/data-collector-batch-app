@@ -4,6 +4,12 @@ import { BatchLoggerService } from '../log/batch-logger.service';
 import { TransactionCollectionService } from './services/transaction-collection.service';
 import { MergeTransactionService } from './services/merge-transaction.service';
 import { BatchRepositoryService } from './services/batch-repository.service';
+import { TaskManagerService } from '../common/concurrency/task-manager.service';
+import {
+  TRANSACTION_FETCHERS,
+  FetcherDefinition,
+} from './data-source/fetcher.provider';
+import { TransactionFetcher } from './type/transaction';
 
 describe('BatchService 통합 테스트', () => {
   let service: BatchService;
@@ -11,6 +17,27 @@ describe('BatchService 통합 테스트', () => {
   let mockCollectionService: jest.Mocked<TransactionCollectionService>;
   let mockMergeService: jest.Mocked<MergeTransactionService>;
   let mockRepositoryService: jest.Mocked<BatchRepositoryService>;
+  let mockTaskManager: jest.Mocked<TaskManagerService>;
+
+  // Mock Fetcher 정의 (확장성 테스트용)
+  const mockFetcherDefinitions: FetcherDefinition[] = [
+    {
+      name: 'Mock Source 1',
+      fetcher: {
+        fetch: jest.fn().mockResolvedValue([]),
+      } as TransactionFetcher,
+      enabled: true,
+      priority: 1,
+    },
+    {
+      name: 'Mock Source 2',
+      fetcher: {
+        fetch: jest.fn().mockResolvedValue([]),
+      } as TransactionFetcher,
+      enabled: true,
+      priority: 2,
+    },
+  ];
 
   beforeEach(async () => {
     // Logger Mock
@@ -44,6 +71,14 @@ describe('BatchService 통합 테스트', () => {
       filterDuplicates: jest.fn(),
     } as any;
 
+    // TaskManager Mock
+    mockTaskManager = {
+      canExecute: jest.fn().mockReturnValue(true),
+      startTask: jest.fn(),
+      completeTask: jest.fn(),
+      waitUntilCanExecute: jest.fn().mockResolvedValue(true),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BatchService,
@@ -63,6 +98,15 @@ describe('BatchService 통합 테스트', () => {
           provide: BatchRepositoryService,
           useValue: mockRepositoryService,
         },
+        {
+          provide: TaskManagerService,
+          useValue: mockTaskManager,
+        },
+        // Mock Fetcher 정의 주입 (DI 기반 테스트)
+        {
+          provide: TRANSACTION_FETCHERS,
+          useValue: mockFetcherDefinitions,
+        },
       ],
     }).compile();
 
@@ -74,7 +118,35 @@ describe('BatchService 통합 테스트', () => {
   });
 
   /**
-   * 테스트 1: 배치 작업 전체 흐름
+   * 테스트 1: DI 기반 Fetcher 주입 확인 (확장성 테스트)
+   */
+  describe('DI 기반 Fetcher 주입', () => {
+    it('주입된 Fetcher 정의가 CollectionService에 전달된다', async () => {
+      // Given
+      mockCollectionService.fetchFromMultipleSources.mockResolvedValue([]);
+      mockRepositoryService.getProcessedIds.mockResolvedValue([]);
+      mockRepositoryService.filterDuplicates.mockReturnValue({
+        new: [],
+        duplicate: [],
+      });
+
+      // When
+      await service.run();
+
+      // Then: CollectionService가 Mock Fetcher들을 받았는지 확인
+      expect(
+        mockCollectionService.fetchFromMultipleSources,
+      ).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Mock Source 1' }),
+          expect.objectContaining({ name: 'Mock Source 2' }),
+        ]),
+      );
+    });
+  });
+
+  /**
+   * 테스트 2: 배치 작업 전체 흐름
    */
   describe('run', () => {
     it('새로운 데이터가 없으면 조기 종료한다', async () => {
@@ -169,6 +241,41 @@ describe('BatchService 통합 테스트', () => {
       // When & Then
       await expect(service.run()).rejects.toThrow('Test error');
       expect(mockLogger.error).toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * 테스트 3: 다양한 Fetcher 구성 테스트 (확장성)
+   */
+  describe('다양한 Fetcher 구성', () => {
+    it('빈 Fetcher 목록도 처리할 수 있다', async () => {
+      // 빈 Fetcher로 새 모듈 생성
+      const emptyModule = await Test.createTestingModule({
+        providers: [
+          BatchService,
+          { provide: BatchLoggerService, useValue: mockLogger },
+          {
+            provide: TransactionCollectionService,
+            useValue: mockCollectionService,
+          },
+          { provide: MergeTransactionService, useValue: mockMergeService },
+          { provide: BatchRepositoryService, useValue: mockRepositoryService },
+          { provide: TaskManagerService, useValue: mockTaskManager },
+          { provide: TRANSACTION_FETCHERS, useValue: [] }, // 빈 배열
+        ],
+      }).compile();
+
+      const emptyService = emptyModule.get<BatchService>(BatchService);
+
+      mockCollectionService.fetchFromMultipleSources.mockResolvedValue([]);
+      mockRepositoryService.getProcessedIds.mockResolvedValue([]);
+      mockRepositoryService.filterDuplicates.mockReturnValue({
+        new: [],
+        duplicate: [],
+      });
+
+      // 에러 없이 실행되어야 함
+      await expect(emptyService.run()).resolves.not.toThrow();
     });
   });
 });
