@@ -4,7 +4,7 @@ import { BatchLoggerService } from '../../log/batch-logger.service';
 import { Port4001Fetcher } from './fetchers/port-4001-fetcher';
 import { Port4002Fetcher } from './fetchers/port-4002-fetcher';
 import { Port4003Fetcher } from './fetchers/port-4003-fetcher';
-import { CsvTransactionFetcher } from './csv-transaction-fetcher';
+import { CsvTransactionFetcher } from './fetchers/csv-transaction-fetcher';
 import * as path from 'path';
 
 /**

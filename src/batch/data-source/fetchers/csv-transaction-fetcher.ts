@@ -1,7 +1,7 @@
-import { Transaction, TransactionFetcher } from '../type/transaction';
+import { Transaction, TransactionFetcher } from '../../type/transaction';
 import { readFile } from 'fs/promises';
 import { parse } from 'csv-parse/sync';
-import { BatchLogger } from '../../log/type/batch-logger';
+import { BatchLogger } from '../../../log/type/batch-logger';
 
 export class CsvTransactionFetcher implements TransactionFetcher {
   constructor(private filePath: string, private logger: BatchLogger) { }
