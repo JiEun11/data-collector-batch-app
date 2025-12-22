@@ -5,6 +5,9 @@ import { BatchLoggerService } from '../log/batch-logger.service';
 import { TransactionCollectionService } from './services/transaction-collection.service';
 import { MergeTransactionService } from './services/merge-transaction.service';
 import { BatchRepositoryService } from './services/batch-repository.service';
+import { TaskManagerService } from '../common/concurrency/task-manager.service';
+import { Sequential, Parallel } from '../common/concurrency/decorators';
+import { ResourceGroup } from '../common/concurrency/types/task.types';
 
 /**
  * @description 배치 작업 메인 서비스
@@ -21,12 +24,18 @@ export class BatchService implements OnApplicationBootstrap {
     private readonly collectionService: TransactionCollectionService,
     private readonly mergeService: MergeTransactionService,
     private readonly repositoryService: BatchRepositoryService,
-  ) {}
+    private readonly taskManager: TaskManagerService,
+  ) { }
 
   /**
    * @description 10분마다 실행
+   * 배치 작업은 순차 처리
    */
   @Cron('0 */10 * * * *')
+  @Sequential(ResourceGroup.BATCH_JOB, {
+    taskName: 'BatchJob',
+    maxWaitTime: 600000, // 10분
+  })
   async run(): Promise<void> {
     const startTime = Date.now();
     this.logger.log('========== 배치 작업 시작 ==========');
@@ -68,9 +77,7 @@ export class BatchService implements OnApplicationBootstrap {
       this.logger.error('배치 작업 실패', error.stack, {
         error: error.message,
       });
-
       console.error('배치 작업 실패:', error.message);
-      console.error('스택 트레이스:', error.stack);
 
       throw error;
     } finally {
@@ -84,7 +91,11 @@ export class BatchService implements OnApplicationBootstrap {
 
   /**
    * @description 모든 소스에서 데이터 수집
+   * 여러 API에서 동시에 데이터 수집 가능
    */
+  @Parallel(ResourceGroup.DATA_COLLECTION, {
+    taskName: 'CollectTransactions',
+  })
   private async collectTransactions() {
     const fetchers = TransactionFetcherFactory.createAllFetchers(
       this.CSV_FILE_PATH,
@@ -130,7 +141,11 @@ export class BatchService implements OnApplicationBootstrap {
 
   /**
    * @description 결과 저장
+   * 파일 쓰기는 순차 처리
    */
+  @Sequential(ResourceGroup.FILE_WRITE, {
+    taskName: 'SaveResults',
+  })
   private async saveResults(mergeTransactions: any[]) {
     // MergeTransaction 저장
     await this.repositoryService.saveMergeTransactions(mergeTransactions);
