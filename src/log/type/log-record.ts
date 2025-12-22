@@ -1,6 +1,6 @@
 export type LogLevel = 'ERROR' | 'LOG' | 'WARN' | 'DEBUG' | 'VERBOSE';
 
-export interface LogEntry {
+export interface LogRecord {
   timestamp: string;
   level: LogLevel;
   message: string;

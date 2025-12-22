@@ -1,152 +1,109 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { BatchLogger } from './type/batch-logger';
-import { LogEntry, LogLevel } from './type/log-entry';
 import { Repository } from '../database/repository';
 import { JSON_REPOSITORY } from '../database/repository.module';
-import { ApiResponse, ApiResponseCode } from '../common/types/api-response';
+import { LogRecordFactory } from './utils/log-record.factory';
+import { LogBuffer } from './utils/log-buffer';
 import { BatchException } from '../common/exceptions/batch-exception';
+import { LogRecord } from './type/log-record';
 
+/**
+ * @description 배치 로거 서비스
+ *
+ * - 로그 인터페이스 제공 (error, log, warn, debug, verbose)
+ * - LogRecordFactory와 LogBuffer를 조율
+ *
+ * 동작 흐름:
+ * 1. 로그 메서드 호출 (e.g., logger.log('메시지'))
+ * 2. LogRecordFactory로 LogRecord 생성
+ * 3. LogBuffer에 추가
+ * 4. LogBuffer가 자동으로 DB 저장 관리
+ */
 @Injectable()
 export class BatchLoggerService implements BatchLogger {
-  private readonly LOG_KEY = 'batch_logs';
-  private logBuffer: LogEntry[] = [];
-  private isFlushing = false;
+  /**
+   * @description 로그를 저장할 DB 키
+   *
+   * 용도: Repository에서 로그 데이터를 구분하는 키
+   * 예시: batch-database.json 파일 내부
+   * {
+   *   "batch_logs": [...],         // 여기에 로그가 저장됨
+   *   "merge_transactions": [...],
+   *   "processed_transaction_ids": [...]
+   * }
+   */
+  private readonly LOG_STORAGE_KEY = 'batch_logs';
+
+  private logBuffer: LogBuffer;
 
   constructor(
     @Inject(JSON_REPOSITORY)
-    private readonly repository: Repository<LogEntry[]>,
-  ) { }
+    private readonly repository: Repository<LogRecord[]>,
+  ) {
+    // LogBuffer 초기화
+    this.logBuffer = new LogBuffer(this.repository, this.LOG_STORAGE_KEY);
+  }
 
-  // 에러 로깅
+  /**
+   * @description ERROR 레벨 로그
+   */
   error(message: string, stack?: string, context?: any): void {
-    const entry = this.createLogEntry('ERROR', message, stack, context);
-    this.addLog(entry);
+    const record = LogRecordFactory.createError(message, stack, context);
+    this.logBuffer.add(record);
   }
 
-  // BatchException 에러 로깅
+  /**
+   * @description BatchException 에러 로그
+   */
   logBatchException(exception: BatchException): void {
-    const errorResponse = exception.toErrorResponse();
-
-    const entry = this.createLogEntry(
-      'ERROR',
-      errorResponse.systemMessage,
-      errorResponse.stack,
-      {
-        code: errorResponse.code,
-        clientMessage: errorResponse.clientMessage,
-        context: errorResponse.context,
-      },
-    );
-    this.addLog(entry);
+    const record = LogRecordFactory.createFromBatchException(exception);
+    this.logBuffer.add(record);
   }
 
-  // 성공 로깅
+  /**
+   * @description 성공 로그 (SUCCESS 응답 포함)
+   */
   logSuccess<T>(message: string, data?: T, context?: any): void {
-    const successResponse: ApiResponse<T> = {
-      code: ApiResponseCode.SUCCESS,
-      clientMessage: message,
-      systemMessage: message,
-      data,
-      timestamp: new Date().toISOString(),
-    };
-
-    const entry = this.createLogEntry('LOG', message, undefined, {
-      response: successResponse,
-      ...context,
-    });
-    this.addLog(entry);
+    const record = LogRecordFactory.createSuccess(message, data, context);
+    this.logBuffer.add(record);
   }
 
+  /**
+   * @description LOG 레벨 로그
+   */
   log(message: string, context?: any): void {
-    const entry = this.createLogEntry('LOG', message, undefined, context);
-    this.addLog(entry);
+    const record = LogRecordFactory.createLog(message, context);
+    this.logBuffer.add(record);
   }
 
+  /**
+   * @description WARN 레벨 로그
+   */
   warn(message: string, context?: any): void {
-    const entry = this.createLogEntry('WARN', message, undefined, context);
-    this.addLog(entry);
+    const record = LogRecordFactory.createWarn(message, context);
+    this.logBuffer.add(record);
   }
 
+  /**
+   * @description DEBUG 레벨 로그
+   */
   debug(message: string, context?: any): void {
-    const entry = this.createLogEntry('DEBUG', message, undefined, context);
-    this.addLog(entry);
+    const record = LogRecordFactory.createDebug(message, context);
+    this.logBuffer.add(record);
   }
 
+  /**
+   * @description VERBOSE 레벨 로그
+   */
   verbose(message: string, context?: any): void {
-    const entry = this.createLogEntry('VERBOSE', message, undefined, context);
-    this.addLog(entry);
-  }
-
-  /**
-   * @description 로그 항목 생성
-   * @param level 로그의 심각도
-   * @param message 로그의 메세지
-   * @param stack 에러의 원인 추적 정보
-   * @param context 로그의 부가 메타 데이터
-   * @returns
-   */
-  private createLogEntry(
-    level: LogLevel,
-    message: string,
-    stack?: string,
-    context?: any,
-  ): LogEntry {
-    return {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      stack,
-      context,
-    };
-  }
-
-  /**
-   * @description 로그를 버퍼에 추가하고 비동기로 DB 저장
-   * @param entry
-   */
-  private addLog(entry: LogEntry): void {
-    this.logBuffer.push(entry);
-
-    // 버퍼가 너무 커지지 않도록 주기적으로 flush
-    if (this.logBuffer.length >= 50 && !this.isFlushing) {
-      this.flushLogs();
-    }
-
-    // 비동기로 저장 (동기 함수 내에서 실행)
-    setImmediate(() => this.flushLogs());
-  }
-
-  /**
-   * @description 버퍼에 쌓인 로그를 DB에 저장
-   */
-  private async flushLogs(): Promise<void> {
-    if (this.isFlushing || this.logBuffer.length === 0) {
-      return;
-    }
-
-    this.isFlushing = true;
-
-    try {
-      const logsToSave = [...this.logBuffer];
-      this.logBuffer = [];
-
-      const existingLogs = (await this.repository.find(this.LOG_KEY)) || [];
-      const updatedLogs = [...existingLogs, ...logsToSave];
-
-      await this.repository.save(this.LOG_KEY, updatedLogs);
-    } catch (error) {
-      console.error('[Logger] Failed to flush logs:', error);
-    } finally {
-      this.isFlushing = false;
-    }
+    const record = LogRecordFactory.createVerbose(message, context);
+    this.logBuffer.add(record);
   }
 
   /**
    * @description 애플리케이션 종료 시 남은 로그 저장
    */
   async onApplicationShutdown(): Promise<void> {
-    if (this.logBuffer.length > 0) {
-      await this.flushLogs();
-    }
+    await this.logBuffer.flushAll();
   }
 }
