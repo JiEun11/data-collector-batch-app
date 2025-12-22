@@ -51,7 +51,7 @@ export class TaskManagerService {
     if (hasSequentialRunning) {
       this.pendingTasks.set(taskId, task);
       console.log(
-        `[TaskManager] ${resourceGroup}Sequential 작업이 실행 중이므로 작업을 대기 상태로 전환합니다: ${taskName}`,
+        `[TaskManager] ${resourceGroup} Sequential 작업이 실행 중이므로 작업을 대기 상태로 전환합니다: ${taskName}`,
       );
       return false;
     }
