@@ -18,9 +18,7 @@ export class TaskManagerService {
    */
   private runningTasks: Map<string, Task> = new Map();
 
-  /**
-   * @description 대기 중인 Task Queue
-   */
+  // 대기 중인 Task Queue
   private pendingTasks: Map<string, Task> = new Map();
 
   /**
