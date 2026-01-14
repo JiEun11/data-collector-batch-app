@@ -227,7 +227,7 @@ export class TaskManagerService {
     pollInterval = 1000, // 1초
   ): Promise<boolean> {
     const startTime = Date.now();
-
+    // FIXME: Polling 방식 외에 Event Driven 방식으로 수정 필요 (event emitter 등)
     while (Date.now() - startTime < maxWaitTime) {
       if (this.canExecute(taskId, taskType, resourceGroup, taskName)) {
         const waitTime = Date.now() - startTime;
