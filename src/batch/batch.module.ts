@@ -15,6 +15,9 @@ import {
 } from './data-source/fetcher.provider';
 import { TaskManagerService } from '../common/concurrency/task-manager.service';
 
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import configuration from '../config/configuration';
+
 /**
  * @description 배치 모듈
  * - BatchService: 메인 서비스
@@ -25,10 +28,20 @@ import { TaskManagerService } from '../common/concurrency/task-manager.service';
  * 확장성 개선:
  * - TransactionFetchersProvider를 통해 Fetcher들을 DI로 관리
  * - 새로운 데이터 소스 추가 시 fetcher.provider.ts만 수정하면 됨
+ * FIXME: config 추가, 절대 경로 & 상대 경로 정리
  */
 @Module({
-  imports: [ScheduleModule.forRoot(), RepositoryModule, LogModule],
-  providers: [
+  imports: [
+    // FIXME: ConfigModule 추가
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [configuration],
+    }),
+    ScheduleModule.forRoot(), 
+    RepositoryModule, 
+    LogModule
+  ],
+providers: [
     // Main Service
     BatchService,
 
@@ -43,13 +56,17 @@ import { TaskManagerService } from '../common/concurrency/task-manager.service';
     // Transaction Fetchers (DI 기반 - 확장성 확보)
     TransactionFetchersProvider,
 
-    // StoreTransaction Fetcher
+    // StoreTransaction Fetcher, FIXME: logger 타입 선언
     {
       provide: StoreTransactionFetcher,
-      useFactory: (logger) => {
-        return new StoreTransactionFetcher('http://localhost:4596', logger);
+      useFactory: (configService: ConfigService, logger: BatchLoggerService) => {
+        const baseUrl = configService.get<string>('api.port4001.url');
+        if (!baseUrl) {
+          throw new Error('Store Transaction API baseUrl is not defined in configuration');
+        }
+        return new StoreTransactionFetcher(baseUrl, logger);
       },
-      inject: [BatchLoggerService],
+      inject: [ConfigService, BatchLoggerService],  // ConfigService 주입
     },
   ],
   exports: [TRANSACTION_FETCHERS],
